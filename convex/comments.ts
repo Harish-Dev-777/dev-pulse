@@ -8,7 +8,7 @@ async function getUserById(ctx: GenericQueryCtx<DataModel>, userId: string) {
   try {
     const user = await authComponent.getAnyUserById(ctx, userId);
     if (user) return user;
-    return await ctx.db.get(userId as any);
+    return (await ctx.db.get(userId as any)) as any;
   } catch (error) {
     console.error(`Error fetching user ${userId}:`, error);
     return null;

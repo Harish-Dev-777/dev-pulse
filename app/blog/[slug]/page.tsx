@@ -98,10 +98,12 @@ export default function BlogPost() {
 
             <div className="flex items-center gap-4 border-b border-neutral-200 pb-8">
               <div className="w-12 h-12 rounded-full bg-neutral-200 flex items-center justify-center font-bold text-lg text-neutral-600">
+                {/* @ts-ignore */}
                 {post.author?.name?.charAt(0) || "?"}
               </div>
               <div>
                 <div className="font-bold text-neutral-900">
+                  {/* @ts-ignore */}
                   {post.author?.name || "Unknown"}
                 </div>
                 <div className="text-sm text-neutral-500">

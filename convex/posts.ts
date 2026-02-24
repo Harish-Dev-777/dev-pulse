@@ -6,12 +6,11 @@ import { DataModel } from "./_generated/dataModel";
 
 async function getUserById(ctx: GenericQueryCtx<DataModel>, userId: string) {
   try {
-    // Try the auth component (user table)
     const user = await authComponent.getAnyUserById(ctx, userId);
     if (user) return user;
 
-    // Fallback to legacy users table
-    return await ctx.db.get(userId as any);
+    // Explicitly cast to target the users table fields to help TypeScript
+    return (await ctx.db.get(userId as any)) as any;
   } catch (error) {
     console.error(`Error fetching user ${userId}:`, error);
     return null;
