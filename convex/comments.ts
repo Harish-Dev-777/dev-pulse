@@ -5,12 +5,20 @@ import { GenericQueryCtx } from "convex/server";
 import { DataModel } from "./_generated/dataModel";
 
 async function getUserById(ctx: GenericQueryCtx<DataModel>, userId: string) {
+  if (!userId) return null;
+
   try {
-    const user = await authComponent.getAnyUserById(ctx, userId);
+    const user = await authComponent
+      .getAnyUserById(ctx, userId)
+      .catch(() => null);
     if (user) return user;
-    return (await ctx.db.get(userId as any)) as any;
+
+    try {
+      return (await ctx.db.get(userId as any)) as any;
+    } catch {
+      return null;
+    }
   } catch (error) {
-    console.error(`Error fetching user ${userId}:`, error);
     return null;
   }
 }

@@ -5,14 +5,22 @@ import { GenericQueryCtx } from "convex/server";
 import { DataModel } from "./_generated/dataModel";
 
 async function getUserById(ctx: GenericQueryCtx<DataModel>, userId: string) {
+  if (!userId) return null;
+
   try {
-    const user = await authComponent.getAnyUserById(ctx, userId);
+    // 1. Try modern user table via auth component
+    const user = await authComponent
+      .getAnyUserById(ctx, userId)
+      .catch(() => null);
     if (user) return user;
 
-    // Explicitly cast to target the users table fields to help TypeScript
-    return (await ctx.db.get(userId as any)) as any;
+    // 2. Try legacy users table directly
+    try {
+      return (await ctx.db.get(userId as any)) as any;
+    } catch {
+      return null;
+    }
   } catch (error) {
-    console.error(`Error fetching user ${userId}:`, error);
     return null;
   }
 }
@@ -187,7 +195,7 @@ export const search = query({
 
     return Promise.all(
       posts.map(async (post) => {
-        const author = await authComponent.getAnyUserById(ctx, post.authorId);
+        const author = await getUserById(ctx, post.authorId);
         return { ...post, author };
       }),
     );
