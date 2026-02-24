@@ -31,7 +31,7 @@ export const create = mutation({
       throw new Error("Slug already exists");
     }
 
-    let imageUrl = undefined;
+    let imageUrl: string | undefined = undefined;
     if (args.imageStorageId) {
       imageUrl = (await ctx.storage.getUrl(args.imageStorageId)) ?? undefined;
     }

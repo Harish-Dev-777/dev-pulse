@@ -10,10 +10,12 @@ export function PresenceIndicator({ slug }: { slug: string }) {
   const presence = useQuery(api.presence.list, { room: slug });
   const heartbeat = useMutation(api.presence.heartbeat);
 
-  const [anonymousId] = useState(() => "anonymous-" + Math.random().toString(36).substr(2, 9));
+  const [anonymousId] = useState(
+    () => "anonymous-" + Math.random().toString(36).substr(2, 9),
+  );
 
   useEffect(() => {
-    const userId = user?._id ?? anonymousId;
+    const userId = user?.id ?? anonymousId;
     const name = user?.name ?? "Anonymous Reader";
 
     // Initial heartbeat
@@ -38,7 +40,10 @@ export function PresenceIndicator({ slug }: { slug: string }) {
   if (!presence || presence.length === 0) return null;
 
   const count = presence.length;
-  const names = presence.map((p: any) => p.name).slice(0, 3).join(", ");
+  const names = presence
+    .map((p: any) => p.name)
+    .slice(0, 3)
+    .join(", ");
   const others = count > 3 ? ` and ${count - 3} others` : "";
 
   return (

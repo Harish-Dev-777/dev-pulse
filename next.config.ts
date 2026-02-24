@@ -19,7 +19,7 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  output: "standalone",
+  // output: "standalone", // Commented out to avoid EPERM symlink errors on Windows terminal
   transpilePackages: [
     "motion",
     "@convex-dev/better-auth",
