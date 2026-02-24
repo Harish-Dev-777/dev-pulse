@@ -8,18 +8,25 @@ async function getUserById(ctx: GenericQueryCtx<DataModel>, userId: string) {
   if (!userId) return null;
 
   try {
-    // 1. Try modern user table via auth component
-    const user = await authComponent
-      .getAnyUserById(ctx, userId)
+    // 1. Try manual lookup in both potential tables to be as safe as possible
+    // First try the modern 'user' table
+    const modernUser = await ctx.db
+      .query("user")
+      .filter((q) => q.eq(q.field("_id"), userId as any))
+      .unique()
       .catch(() => null);
-    if (user) return user;
+    if (modernUser) return modernUser;
 
-    // 2. Try legacy users table directly
-    try {
-      return (await ctx.db.get(userId as any)) as any;
-    } catch {
-      return null;
-    }
+    // Then try the legacy 'users' table
+    const legacyUser = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("_id"), userId as any))
+      .unique()
+      .catch(() => null);
+    if (legacyUser) return legacyUser;
+
+    // Fallback: try direct db.get (might work if ID is branded)
+    return await ctx.db.get(userId as any).catch(() => null);
   } catch (error) {
     return null;
   }

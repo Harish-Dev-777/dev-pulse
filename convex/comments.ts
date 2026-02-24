@@ -8,16 +8,23 @@ async function getUserById(ctx: GenericQueryCtx<DataModel>, userId: string) {
   if (!userId) return null;
 
   try {
-    const user = await authComponent
-      .getAnyUserById(ctx, userId)
+    // 1. Try modern 'user' table
+    const modernUser = await ctx.db
+      .query("user")
+      .filter((q) => q.eq(q.field("_id"), userId as any))
+      .unique()
       .catch(() => null);
-    if (user) return user;
+    if (modernUser) return modernUser;
 
-    try {
-      return (await ctx.db.get(userId as any)) as any;
-    } catch {
-      return null;
-    }
+    // 2. Try legacy 'users' table
+    const legacyUser = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("_id"), userId as any))
+      .unique()
+      .catch(() => null);
+    if (legacyUser) return legacyUser;
+
+    return await ctx.db.get(userId as any).catch(() => null);
   } catch (error) {
     return null;
   }
@@ -45,17 +52,22 @@ export const create = mutation({
 export const list = query({
   args: { postId: v.id("posts") },
   handler: async (ctx, args) => {
-    const comments = await ctx.db
-      .query("comments")
-      .withIndex("by_post", (q) => q.eq("postId", args.postId))
-      .order("desc")
-      .collect();
+    try {
+      const comments = await ctx.db
+        .query("comments")
+        .withIndex("by_post", (q) => q.eq("postId", args.postId))
+        .order("desc")
+        .collect();
 
-    return Promise.all(
-      comments.map(async (comment) => {
-        const author = await getUserById(ctx, comment.authorId);
-        return { ...comment, author };
-      }),
-    );
+      return await Promise.all(
+        comments.map(async (comment) => {
+          const author = await getUserById(ctx, comment.authorId);
+          return { ...comment, author };
+        }),
+      );
+    } catch (err) {
+      console.error("Error in comments:list:", err);
+      return [];
+    }
   },
 });
