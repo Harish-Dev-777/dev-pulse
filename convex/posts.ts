@@ -1,6 +1,22 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { authComponent } from "./auth";
+import { GenericQueryCtx } from "convex/server";
+import { DataModel } from "./_generated/dataModel";
+
+async function getUserById(ctx: GenericQueryCtx<DataModel>, userId: string) {
+  try {
+    // Try the auth component (user table)
+    const user = await authComponent.getAnyUserById(ctx, userId);
+    if (user) return user;
+
+    // Fallback to legacy users table
+    return await ctx.db.get(userId as any);
+  } catch (error) {
+    console.error(`Error fetching user ${userId}:`, error);
+    return null;
+  }
+}
 
 export const generateUploadUrl = mutation({
   handler: async (ctx) => {
@@ -108,7 +124,7 @@ export const list = query({
     // Join with author using the auth component
     return Promise.all(
       posts.map(async (post) => {
-        const author = await authComponent.getAnyUserById(ctx, post.authorId);
+        const author = await getUserById(ctx, post.authorId);
         return { ...post, author };
       }),
     );
@@ -125,7 +141,7 @@ export const getBySlug = query({
 
     if (!post) return null;
 
-    const author = await authComponent.getAnyUserById(ctx, post.authorId);
+    const author = await getUserById(ctx, post.authorId);
     return { ...post, author };
   },
 });

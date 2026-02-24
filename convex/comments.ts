@@ -1,6 +1,19 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { authComponent } from "./auth";
+import { GenericQueryCtx } from "convex/server";
+import { DataModel } from "./_generated/dataModel";
+
+async function getUserById(ctx: GenericQueryCtx<DataModel>, userId: string) {
+  try {
+    const user = await authComponent.getAnyUserById(ctx, userId);
+    if (user) return user;
+    return await ctx.db.get(userId as any);
+  } catch (error) {
+    console.error(`Error fetching user ${userId}:`, error);
+    return null;
+  }
+}
 
 export const create = mutation({
   args: {
@@ -32,10 +45,7 @@ export const list = query({
 
     return Promise.all(
       comments.map(async (comment) => {
-        const author = await authComponent.getAnyUserById(
-          ctx,
-          comment.authorId,
-        );
+        const author = await getUserById(ctx, comment.authorId);
         return { ...comment, author };
       }),
     );
