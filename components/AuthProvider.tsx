@@ -1,68 +1,43 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
-import { AuthContext } from "@/lib/auth"; // We'll need to export the context from lib/auth or move it here
-import { useMutation, useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { ReactNode } from "react";
+import { AuthContext, User } from "@/lib/auth";
+import { authClient } from "@/lib/auth-client";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(null);
-  
-  // Load token from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem("auth_token");
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (stored) setToken(stored);
-  }, []);
+  const { data: session, isPending } = authClient.useSession();
 
-  // Check session validity with Convex
-  // We use "skip" if no token, so it doesn't query
-  const sessionData = useQuery(api.auth.getSession, token ? { token } : "skip");
-  
-  const createUser = useMutation(api.users.create);
-  const createSession = useMutation(api.auth.createSession);
-  const deleteSession = useMutation(api.auth.deleteSession);
-
-  const login = async (email: string, name: string) => {
-    try {
-      // 1. Create or get user
-      const userId = await createUser({ email, name });
-      
-      // 2. Create session
-      const newToken = Math.random().toString(36).substring(2) + Date.now().toString(36);
-      await createSession({
-        userId,
-        token: newToken,
-        expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days
-      });
-
-      // 3. Store token
-      localStorage.setItem("auth_token", newToken);
-      setToken(newToken);
-    } catch (error) {
-      console.error("Login failed:", error);
-    }
+  const login = async () => {
+    // Better Auth will handle the redirect/popup for social login
+    // or we can use signIn.email() etc.
+    // For now, let's trigger the Google sign-in as a default test
+    await authClient.signIn.social({
+      provider: "github", // Change to github or whatever is configured
+      callbackURL: "/",
+    });
   };
 
   const logout = async () => {
-    if (token) {
-      try {
-        await deleteSession({ token });
-      } catch (e) {
-        console.error("Logout error", e);
-      }
-    }
-    localStorage.removeItem("auth_token");
-    setToken(null);
+    await authClient.signOut();
   };
 
+  // Map Better Auth user to our User type
+  const user: User | null = session?.user
+    ? {
+        id: session.user.id,
+        name: session.user.name,
+        email: session.user.email,
+        image: session.user.image,
+      }
+    : null;
+
   return (
-    <AuthContext.Provider 
-      value={{ 
-        user: sessionData?.user ?? null, 
-        isLoading: token !== null && sessionData === undefined,
-        login, 
-        logout 
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading: isPending,
+        login,
+        logout,
       }}
     >
       {children}

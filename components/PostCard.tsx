@@ -11,6 +11,7 @@ interface PostCardProps {
     title: string;
     slug: string;
     content: string;
+    imageUrl?: string;
     createdAt: number;
     views: number;
     author: {
@@ -39,11 +40,25 @@ export function PostCard({ post, index }: PostCardProps) {
               {formatDistanceToNow(post.createdAt, { addSuffix: true })}
             </span>
           </div>
-          
-          <Link href={`/blog/${post.slug}`} className="block group-hover:text-indigo-600 transition-colors">
-            <h3 className="text-2xl font-bold mb-3 leading-tight">{post.title}</h3>
+
+          <Link
+            href={`/blog/${post.slug}`}
+            className="block group-hover:opacity-90 transition-opacity"
+          >
+            {post.imageUrl && (
+              <div className="mb-4 rounded-xl overflow-hidden aspect-video">
+                <img
+                  src={post.imageUrl}
+                  alt={post.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+              </div>
+            )}
+            <h3 className="text-2xl font-bold mb-3 leading-tight group-hover:text-neutral-600 transition-colors">
+              {post.title}
+            </h3>
           </Link>
-          
+
           <p className="text-neutral-500 line-clamp-3 mb-6 text-sm leading-relaxed">
             {post.content}
           </p>
@@ -68,7 +83,7 @@ export function PostCard({ post, index }: PostCardProps) {
           </div>
         </div>
       </div>
-      
+
       <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:translate-x-1 duration-300">
         <ArrowUpRight className="w-5 h-5 text-indigo-600" />
       </div>

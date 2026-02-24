@@ -14,7 +14,7 @@ import { ArrowLeft } from "lucide-react";
 export default function BlogPost() {
   const params = useParams();
   const slug = params.slug as string;
-  
+
   const post = useQuery(api.posts.getBySlug, { slug });
   const incrementViews = useMutation(api.posts.incrementViews);
 
@@ -52,7 +52,9 @@ export default function BlogPost() {
         <Navbar />
         <main className="max-w-3xl mx-auto px-4 py-12 text-center">
           <h1 className="text-4xl font-bold mb-4">Post not found</h1>
-          <Link href="/" className="text-indigo-600 hover:underline">Return home</Link>
+          <Link href="/" className="text-indigo-600 hover:underline">
+            Return home
+          </Link>
         </main>
       </div>
     );
@@ -61,9 +63,12 @@ export default function BlogPost() {
   return (
     <div className="min-h-screen bg-neutral-50">
       <Navbar />
-      
+
       <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <Link href="/" className="inline-flex items-center text-sm text-neutral-500 hover:text-neutral-900 mb-8 transition-colors">
+        <Link
+          href="/blog"
+          className="inline-flex items-center text-sm text-neutral-500 hover:text-neutral-900 mb-8 transition-colors"
+        >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Articles
         </Link>
@@ -77,6 +82,16 @@ export default function BlogPost() {
               <PresenceIndicator slug={slug} />
             </div>
 
+            {post.imageUrl && (
+              <div className="mb-8 rounded-2xl overflow-hidden shadow-lg aspect-video">
+                <img
+                  src={post.imageUrl}
+                  alt={post.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+
             <h1 className="text-4xl md:text-5xl font-display font-bold mb-6 leading-tight text-neutral-900">
               {post.title}
             </h1>
@@ -86,7 +101,9 @@ export default function BlogPost() {
                 {post.author?.name?.charAt(0) || "?"}
               </div>
               <div>
-                <div className="font-bold text-neutral-900">{post.author?.name || "Unknown"}</div>
+                <div className="font-bold text-neutral-900">
+                  {post.author?.name || "Unknown"}
+                </div>
                 <div className="text-sm text-neutral-500">
                   {format(post.createdAt, "MMMM d, yyyy")} • {post.views} views
                 </div>

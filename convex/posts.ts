@@ -1,16 +1,27 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { paginationOptsValidator } from "convex/server";
+import { authComponent } from "./auth";
+
+export const generateUploadUrl = mutation({
+  handler: async (ctx) => {
+    return await ctx.storage.generateUploadUrl();
+  },
+});
 
 export const create = mutation({
   args: {
     title: v.string(),
     slug: v.string(),
     content: v.string(),
-    authorId: v.id("users"),
+    authorId: v.string(),
+    imageStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
-    // In a real app, validate authorId matches authenticated user
+    const user = await authComponent.getAuthUser(ctx);
+    if (!user || user._id !== args.authorId) {
+      throw new Error("Unauthorized");
+    }
+
     const existing = await ctx.db
       .query("posts")
       .withIndex("by_slug", (q) => q.eq("slug", args.slug))
@@ -20,8 +31,14 @@ export const create = mutation({
       throw new Error("Slug already exists");
     }
 
+    let imageUrl = undefined;
+    if (args.imageStorageId) {
+      imageUrl = (await ctx.storage.getUrl(args.imageStorageId)) ?? undefined;
+    }
+
     return await ctx.db.insert("posts", {
       ...args,
+      imageUrl,
       views: 0,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -34,16 +51,29 @@ export const update = mutation({
     id: v.id("posts"),
     title: v.string(),
     content: v.string(),
-    authorId: v.id("users"), // For validation
+    authorId: v.string(),
+    imageStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
+    const user = await authComponent.getAuthUser(ctx);
+    if (!user || user._id !== args.authorId) {
+      throw new Error("Unauthorized");
+    }
+
     const post = await ctx.db.get(args.id);
     if (!post) throw new Error("Post not found");
     if (post.authorId !== args.authorId) throw new Error("Unauthorized");
 
+    let imageUrl = post.imageUrl;
+    if (args.imageStorageId && args.imageStorageId !== post.imageStorageId) {
+      imageUrl = (await ctx.storage.getUrl(args.imageStorageId)) ?? undefined;
+    }
+
     await ctx.db.patch(args.id, {
       title: args.title,
       content: args.content,
+      imageStorageId: args.imageStorageId,
+      imageUrl: imageUrl,
       updatedAt: Date.now(),
     });
   },
@@ -52,12 +82,21 @@ export const update = mutation({
 export const remove = mutation({
   args: {
     id: v.id("posts"),
-    authorId: v.id("users"), // For validation
+    authorId: v.string(),
   },
   handler: async (ctx, args) => {
+    const user = await authComponent.getAuthUser(ctx);
+    if (!user || user._id !== args.authorId) {
+      throw new Error("Unauthorized");
+    }
+
     const post = await ctx.db.get(args.id);
     if (!post) throw new Error("Post not found");
     if (post.authorId !== args.authorId) throw new Error("Unauthorized");
+
+    if (post.imageStorageId) {
+      await ctx.storage.delete(post.imageStorageId);
+    }
 
     await ctx.db.delete(args.id);
   },
@@ -66,12 +105,12 @@ export const remove = mutation({
 export const list = query({
   handler: async (ctx) => {
     const posts = await ctx.db.query("posts").order("desc").collect();
-    // Join with author
+    // Join with author using the auth component
     return Promise.all(
       posts.map(async (post) => {
-        const author = await ctx.db.get(post.authorId);
+        const author = await authComponent.getAnyUserById(ctx, post.authorId);
         return { ...post, author };
-      })
+      }),
     );
   },
 });
@@ -83,23 +122,23 @@ export const getBySlug = query({
       .query("posts")
       .withIndex("by_slug", (q) => q.eq("slug", args.slug))
       .unique();
-    
+
     if (!post) return null;
 
-    const author = await ctx.db.get(post.authorId);
+    const author = await authComponent.getAnyUserById(ctx, post.authorId);
     return { ...post, author };
   },
 });
 
 export const listByAuthor = query({
-  args: { authorId: v.id("users") },
+  args: { authorId: v.string() },
   handler: async (ctx, args) => {
     const posts = await ctx.db
       .query("posts")
       .withIndex("by_author", (q) => q.eq("authorId", args.authorId))
       .order("desc")
       .collect();
-    
+
     return posts;
   },
 });
@@ -125,7 +164,7 @@ export const search = query({
   args: { query: v.string() },
   handler: async (ctx, args) => {
     if (!args.query) return [];
-    
+
     const posts = await ctx.db
       .query("posts")
       .withSearchIndex("search_title", (q) => q.search("title", args.query))
@@ -133,9 +172,9 @@ export const search = query({
 
     return Promise.all(
       posts.map(async (post) => {
-        const author = await ctx.db.get(post.authorId);
+        const author = await authComponent.getAnyUserById(ctx, post.authorId);
         return { ...post, author };
-      })
+      }),
     );
   },
 });

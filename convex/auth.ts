@@ -1,48 +1,45 @@
-import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { createClient, type GenericCtx } from "@convex-dev/better-auth";
+import { convex } from "@convex-dev/better-auth/plugins";
+import { components } from "./_generated/api";
+import { DataModel } from "./_generated/dataModel";
+import { query } from "./_generated/server";
+import { betterAuth } from "better-auth/minimal";
+import authConfig from "./auth.config";
 
-// Simple session-based auth for "Better Auth" simulation in Convex
-// In a real production app with Better Auth, you'd use their library + adapter.
-// Here we implement the core logic to satisfy the requirements without external DBs.
+// SITE_URL should be your Next.js app URL (e.g., http://localhost:3000 or https://your-app.com)
+// BETTER_AUTH_SECRET should be a random string.
+// These MUST be set in the Convex Dashboard > Settings > Environment Variables
+const siteUrl = process.env.SITE_URL ?? "http://localhost:3000";
 
-export const createSession = mutation({
-  args: {
-    userId: v.id("users"),
-    token: v.string(),
-    expiresAt: v.number(),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.db.insert("sessions", args);
-  },
-});
+export const authComponent = createClient<DataModel>(components.betterAuth);
 
-export const getSession = query({
-  args: { token: v.string() },
-  handler: async (ctx, args) => {
-    const session = await ctx.db
-      .query("sessions")
-      .withIndex("by_token", (q) => q.eq("token", args.token))
-      .unique();
+export const createAuth = (ctx: GenericCtx<DataModel>) => {
+  return betterAuth({
+    baseURL: siteUrl,
+    secret: process.env.BETTER_AUTH_SECRET,
+    // Ensure the database adapter is correctly passed
+    database: authComponent.adapter(ctx),
+    emailAndPassword: {
+      enabled: true,
+      requireEmailVerification: false,
+    },
+    socialProviders: {
+      github: {
+        clientId: process.env.GITHUB_CLIENT_ID!,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      },
+      google: {
+        clientId: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      },
+    },
+    plugins: [convex({ authConfig })],
+  });
+};
 
-    if (!session || session.expiresAt < Date.now()) {
-      return null;
-    }
-
-    const user = await ctx.db.get(session.userId);
-    return { session, user };
-  },
-});
-
-export const deleteSession = mutation({
-  args: { token: v.string() },
-  handler: async (ctx, args) => {
-    const session = await ctx.db
-      .query("sessions")
-      .withIndex("by_token", (q) => q.eq("token", args.token))
-      .unique();
-
-    if (session) {
-      await ctx.db.delete(session._id);
-    }
+export const getCurrentUser = query({
+  args: {},
+  handler: async (ctx) => {
+    return authComponent.getAuthUser(ctx);
   },
 });

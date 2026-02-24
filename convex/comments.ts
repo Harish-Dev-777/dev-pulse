@@ -1,13 +1,19 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { authComponent } from "./auth";
 
 export const create = mutation({
   args: {
     postId: v.id("posts"),
-    authorId: v.id("users"),
+    authorId: v.string(),
     content: v.string(),
   },
   handler: async (ctx, args) => {
+    const user = await authComponent.getAuthUser(ctx);
+    if (!user || user._id !== args.authorId) {
+      throw new Error("Unauthorized");
+    }
+
     return await ctx.db.insert("comments", {
       ...args,
       createdAt: Date.now(),
@@ -26,9 +32,12 @@ export const list = query({
 
     return Promise.all(
       comments.map(async (comment) => {
-        const author = await ctx.db.get(comment.authorId);
+        const author = await authComponent.getAnyUserById(
+          ctx,
+          comment.authorId,
+        );
         return { ...comment, author };
-      })
+      }),
     );
   },
 });
